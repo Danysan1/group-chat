@@ -1,10 +1,4 @@
-#define maxNicknameDim 20
-#define maxMessageDim 1000
-
-struct msg{
-  int op; //0:messaggio, +1: iscrizione, -1:disiscrizione
-  char nickname[maxNicknameDim], messaggio[maxMessageDim];
-};
+#include "chat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,9 +19,12 @@ int main(int argc, char **argv){
 	struct sockaddr_in clientaddr, servaddr;
 	int sd, nread, port;
 	fd_set maskFissa, maskPassata;
-	struct msg;
+	struct chat_message data;
 	char nickname[20];
-
+	char const scrivi[]="Scrivi un messaggio: ",
+				lettura[]="Lettura messaggio\n",
+				ricezione[]="Ricezione messaggio\n";
+	
 	/* CONTROLLO ARGOMENTI ---------------------------------- */
 	if(argc!=3){
 		printf("Error:%s serverAddress serverPort\n", argv[0]);
@@ -35,7 +32,7 @@ int main(int argc, char **argv){
 	}
 
 	/* INIZIALIZZAZIONE INDIRIZZO SERVER--------------------- */
-	memset((char *)&servaddr, 0, sizeof(struct sockaddr_in));
+	memset((char *)&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 	host = gethostbyname (argv[1]);
 	if (host == NULL){
@@ -59,7 +56,7 @@ int main(int argc, char **argv){
 	servaddr.sin_port = htons(port);
 
 	/* INIZIALIZZAZIONE INDIRIZZO CLIENT--------------------- */
-	memset((char *)&clientaddr, 0, sizeof(struct sockaddr_in));
+	memset((char *)&clientaddr, 0, sizeof(clientaddr));
 	clientaddr.sin_family = AF_INET;
 	clientaddr.sin_addr.s_addr = INADDR_ANY;  
 	clientaddr.sin_port = 0;
@@ -78,36 +75,49 @@ int main(int argc, char **argv){
 
 	/* CREAZIONE MASCHERE */
 	FD_ZERO(&maskFissa);
-	FD_SET(1, &maskFissa);
+	FD_SET(0, &maskFissa);
 	FD_SET(sd, &maskFissa);
 	maskPassata = maskFissa;
 	
 	/* CORPO DEL CLIENT: */
-	msg.op = +1;
+	data.op = +1;
 	printf("Nickname (max 20 caratteri): ");
 	
-	if(fgets(nickname, 20, stdin) <= 0){
+	if(fgets(nickname, 20, stdin) == 0){
 		puts("EOF o errore, esco");
 		exit(1);
 	}
 	
-	printf("Messaggio: ");
+	write(1, scrivi, sizeof(scrivi));
 
-	while (select(sd+1, &maskPassata, 0, 0, 0) > 1){
-		if(!FD_ISSET(1, maskPassata) && fgets(msg.messaggio, 1000, stdin) > 0){
+	while (select(sd+1, &maskPassata, 0, 0, 0) > 0){
+		socklen_t len;
+		
+		if(FD_ISSET(0, &maskPassata)){
+			write(1, lettura, sizeof(lettura));
 			
-			
+			if(fgets(data.messaggio, 1000, stdin) == 0)
+				break; /* EOF inserito, esci */
+			else { /* Invia messaggio*/
+				data.op = 0;
+				strncpy(data.nickname, nickname, MAX_NICKNAME_LENGTH);
+				
+				if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0){
+					perror("sendto");
+					continue;
+				}
+			}
 		}
 	
-		if (!FD_ISSET(sd, maskPassata)){
-			printf("%s scrive:\n%s\n\n",msg.nickname,msg.messaggio);
+		if (FD_ISSET(sd, &maskPassata)){
+			write(1, ricezione, sizeof(ricezione));
 			
-			if (recvfrom(sd, &specialChar, sizeof(specialChar), 0, (struct sockaddr *)&cliaddr, &len)<0)
-			{perror("recvfrom"); continue;}
+			if (recvfrom(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, &len)<0){
+				perror("recvfrom");
+				continue;
+			}
 			
-			/*Resetto la struttura*/
-			msg.op = 0;
-			msg.nickname = nickname;
+			printf("%s scrive:\n%s\n",data.nickname,data.messaggio);
 		}
 		
 		maskPassata = maskFissa;
@@ -117,10 +127,10 @@ int main(int argc, char **argv){
 	shutdown(sd,0);
 	shutdown(sd,1);
 	
-	msg.op = -1;
-	msg.messaggio = '\n';
-	if (sendto(sd, &ris, sizeof(ris), 0, (struct sockaddr *)&cliaddr, len)<0)
-	  perror("sendto")
+	data.op = -1;
+	data.messaggio[0] = '\0';
+	if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0)
+	  perror("sendto");
 	close(sd);
 	exit(0);
 }
