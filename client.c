@@ -17,7 +17,7 @@
 int main(int argc, char **argv){
 	struct hostent *host;
 	struct sockaddr_in clientaddr, servaddr;
-	int sd, nread, port;
+	int sd, nread, port, registrato=0;
 	fd_set maskFissa, maskPassata;
 	struct chat_message data;
 	char nickname[20];
@@ -99,13 +99,17 @@ int main(int argc, char **argv){
 			if(fgets(data.messaggio, 1000, stdin) == 0)
 				break; /* EOF inserito, esci */
 			else { /* Invia messaggio*/
-				data.op = 0;
+				if(registrato == 1)
+					data.op = 0;
 				strncpy(data.nickname, nickname, MAX_NICKNAME_LENGTH);
 				
 				if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0){
 					perror("sendto");
 					continue;
 				}
+
+				if(registrato == 0)
+					registrato = 1;
 			}
 		}
 	
@@ -124,13 +128,14 @@ int main(int argc, char **argv){
 	} /* while*/
 
 	printf("\nClient: termino...\n");
-	shutdown(sd,0);
-	shutdown(sd,1);
 	
 	data.op = -1;
 	data.messaggio[0] = '\0';
 	if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0)
 	  perror("sendto");
+
+	shutdown(sd,0);
+	shutdown(sd,1);
 	close(sd);
 	exit(0);
 }
