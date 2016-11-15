@@ -10,7 +10,8 @@
 int dimensione = 0;
  
 void main(int arg, char **argv) {
-	int sock,porta_locale,len,num;
+	int sock,porta_locale,num;
+    socklen_t len;
 	struct sockaddr_in sockadd_localhost;
 	struct sockaddr_in cliaddr;
 	struct sockaddr_in registrati[DIM];
@@ -61,8 +62,8 @@ void main(int arg, char **argv) {
 }
 
 void inoltro(struct chat_message ms, int sock, struct sockaddr_in *registrati,struct sockaddr_in mittente) {
-	int i,len,pos;
-	struct sockaddr_in tmp[DIM];
+	int i,pos;
+    socklen_t len;
 	
 	//registrazione
 	if( ms.op == 1) {
@@ -91,8 +92,8 @@ void inoltro(struct chat_message ms, int sock, struct sockaddr_in *registrati,st
 	printf("Inoltro messaggio di  %s\n",ms.nickname);
 	for(i=0; i<dimensione; i++){
 		//evito di inoltrare anche al mittente
-		if( registrati[i].sin_addr.s_addr != mittente.sin_addr.s_addr && registrati[i].sin_port !=  mittente.sin_port)
-			if ( sendto(sock, &ms, sizeof(struct chat_message), 0,(struct sockaddr *)&registrati[i], len)<0)
+		if( registrati[i].sin_addr.s_addr != mittente.sin_addr.s_addr || registrati[i].sin_port !=  mittente.sin_port)
+			if ( sendto(sock, &ms, sizeof(struct chat_message), 0,(struct sockaddr *)&(registrati[i]), len)<0)
 				chiusura(sock);
 	}
 }

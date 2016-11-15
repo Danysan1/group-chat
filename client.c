@@ -3,13 +3,12 @@
 int main(int argc, char **argv){
 	struct hostent *host;
 	struct sockaddr_in clientaddr, servaddr;
-	int sd, nread, port, registrato=0;
+	int sd, nread, port;
 	fd_set maskFissa, maskPassata;
 	struct chat_message data;
 	char nickname[20];
-	char const scrivi[]="Scrivi un messaggio: ",
-				lettura[]="Lettura messaggio\n",
-				ricezione[]="Ricezione messaggio\n";
+	char const scrivi[]="Ora puoi inviare messaggi (o CTRL+D per uscire)",
+        aCapo = '\n';
 	
 	/* CONTROLLO ARGOMENTI ---------------------------------- */
 	if(argc!=3){
@@ -66,48 +65,55 @@ int main(int argc, char **argv){
 	maskPassata = maskFissa;
 	
 	/* CORPO DEL CLIENT: */
-	data.op = +1;
-	printf("Nickname (max 20 caratteri): ");
+	printf("Nickname (max %d caratteri): ", MAX_NICKNAME_LENGTH);
 	
-	if(fgets(nickname, 20, stdin) == 0){
+	if(fgets(nickname, MAX_NICKNAME_LENGTH, stdin) == 0){
 		puts("EOF o errore, esco");
 		exit(1);
 	}
+	strtok(nickname, "\n");
 	
+	data.op = 1;
+	strncpy(data.nickname, nickname, MAX_NICKNAME_LENGTH);
+    strcpy(data.messaggio, "CONNESSIONE");
+	if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0){
+		perror("sendto");
+		exit(2);
+	}
+
 	write(1, scrivi, sizeof(scrivi));
+    write(1, &aCapo, 1);
 
 	while (select(sd+1, &maskPassata, 0, 0, 0) > 0){
 		socklen_t len;
 		
 		if(FD_ISSET(0, &maskPassata)){
-			write(1, lettura, sizeof(lettura));
-			
-			if(fgets(data.messaggio, 1000, stdin) == 0)
+			if(fgets(data.messaggio, MAX_MESSAGE_LENGTH, stdin) == 0)
 				break; /* EOF inserito, esci */
 			else { /* Invia messaggio*/
-				if(registrato == 1)
-					data.op = 0;
+				data.op = 0;
 				strncpy(data.nickname, nickname, MAX_NICKNAME_LENGTH);
+                strtok(data.messaggio, "\n");
 				
 				if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0){
 					perror("sendto");
 					continue;
 				}
-
-				if(registrato == 0)
-					registrato = 1;
 			}
 		}
 	
 		if (FD_ISSET(sd, &maskPassata)){
-			write(1, ricezione, sizeof(ricezione));
-			
 			if (recvfrom(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, &len)<0){
 				perror("recvfrom");
 				continue;
 			}
 			
-			printf("%s scrive:\n%s\n",data.nickname,data.messaggio);
+			write(1, &aCapo, 1);
+			write(1, data.nickname, strlen(data.nickname));
+			write(1, &aCapo, 1);
+			write(1, data.messaggio, strlen(data.messaggio));
+			write(1, &aCapo, 1);
+			write(1, &aCapo, 1);
 		}
 		
 		maskPassata = maskFissa;
