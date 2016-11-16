@@ -62,7 +62,6 @@ int main(int argc, char **argv){
 	FD_ZERO(&maskFissa);
 	FD_SET(0, &maskFissa);
 	FD_SET(sd, &maskFissa);
-	maskPassata = maskFissa;
 	
 	/* CORPO DEL CLIENT: */
 	printf("Nickname (max %d caratteri): ", MAX_NICKNAME_LENGTH);
@@ -77,14 +76,14 @@ int main(int argc, char **argv){
 	strncpy(data.nickname, nickname, MAX_NICKNAME_LENGTH);
     strcpy(data.messaggio, "CONNESSIONE");
 	if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0){
-		perror("sendto");
+		perror("sendto registrazione");
 		exit(2);
 	}
 
 	write(1, scrivi, sizeof(scrivi));
     write(1, &aCapo, 1);
 
-	while (select(sd+1, &maskPassata, 0, 0, 0) > 0){
+	while (maskPassata = maskFissa, select(sd+1, &maskPassata, 0, 0, 0) > 0){
 		socklen_t len;
 		
 		if(FD_ISSET(0, &maskPassata)){
@@ -96,7 +95,7 @@ int main(int argc, char **argv){
                 strtok(data.messaggio, "\n");
 				
 				if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0){
-					perror("sendto");
+					perror("sendto messaggio");
 					continue;
 				}
 			}
@@ -115,8 +114,6 @@ int main(int argc, char **argv){
 			write(1, &aCapo, 1);
 			write(1, &aCapo, 1);
 		}
-		
-		maskPassata = maskFissa;
 	} /* while*/
 
 	printf("\nClient: termino...\n");
@@ -124,7 +121,7 @@ int main(int argc, char **argv){
 	data.op = -1;
 	data.messaggio[0] = '\0';
 	if (sendto(sd, &data, sizeof(data), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) <= 0)
-	  perror("sendto");
+	  perror("sendto deregistrazione");
 
 	shutdown(sd,0);
 	shutdown(sd,1);
